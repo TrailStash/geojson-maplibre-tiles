@@ -55,11 +55,3 @@ map.on("load", () => {
   });
 });
 ```
-
-## ✅ Advantages
-
-* No backend required
-* Works with standard MapLibre styles
-* Uses real vector tiles (PBF), not GeoJSON
-* Spatial filtering happens **before** tiling
-* Compatible with large FlatGeobuf files
