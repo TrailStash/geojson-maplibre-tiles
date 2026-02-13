@@ -53,7 +53,9 @@
           // 2) Add Postpass as vector source
           map.addSource("postpass-source", {
             type: "vector",
-            url: `postpass://SELECT * FROM postpass_polygon
+            url: `postpass://SELECT osm_type, osm_id, tags,
+                      ST_Simplify(geom, 360.0 / pow(2, {z} + 9))
+                    FROM postpass_polygon
                     WHERE tags->>'boundary'='administrative'
                       AND tags->>'admin_level'='6'
                       AND geom && ST_Transform(ST_TileEnvelope({z}, {x}, {y}), 4326)`,
