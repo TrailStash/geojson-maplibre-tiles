@@ -12,14 +12,15 @@
         "imports": {
           "geojson-vt": "https://esm.sh/geojson-vt",
           "@mapbox/tilebelt": "https://esm.sh/@mapbox/tilebelt",
-          "vt-pbf": "https://esm.sh/vt-pbf"
+          "vt-pbf": "https://esm.sh/vt-pbf",
+          "geojson-maplibre-tiles": "../dist/index.js"
         }
       }
     </script>
     <link rel="stylesheet" href="https://esm.sh/maplibre-gl@5.8.0/dist/maplibre-gl.css">
     <script type="module">
         import maplibregl from "https://esm.sh/maplibre-gl";
-        import { Protocol } from "../dist/index.js";
+        import { Protocol } from "geojson-maplibre-tiles";
 
         // 1) Register protocol
         const protocol = new Protocol("postpass", async (query, {}, controller) => {
