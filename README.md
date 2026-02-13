@@ -1,14 +1,27 @@
-# **@rabbit-backend/fgb-maplibre-tiles**
+# **geojson-maplibre-tiles**
 
-A zero-server utility that lets **MapLibre GL JS read FlatGeobuf (`.fgb`) directly as vector tiles in the browser** via a custom protocol.
+An experimental zero-server utility that lets **MapLibre GL JS fetch data from services in a tiled
+fashion via a custom protocol.**
 
-Your FlatGeobuf is **spatially queried per tile**, converted to Mapbox Vector Tiles (MVT), and streamed straight into MapLibre.
+Can be used to enable loading data in a tiled fashion from:
+
+* [Postpass](./examples/postpass.html)
+* [FlatGeoBuf files](./examples/flatgeobuf.html)
+* Overpass
+* Any other service you can query by bbox or slippy tile address and convert results to GeoJSON
+
+Your service is **spatially queried per tile**, converted to Mapbox Vector Tiles (MVT), and streamed straight into MapLibre.
+
+This is derived from https://github.com/rabbit-backend/fgb-maplibre-tiles
 
 
 ## 📦 Installation
 
+**🚧 TODO:** actually publish to npm
+
+
 ```bash
-npm install fgb-maplibre-tiles
+npm install geojson-maplibre-tiles
 ```
 
 You still need MapLibre GL JS in your app:
@@ -18,40 +31,3 @@ npm install maplibre-gl
 ```
 
 ---
-
-## 🗺️ Minimal working usage
-
-```ts
-import maplibregl from "maplibre-gl";
-import { fgbProtocol } from "fgb-maplibre-tiles";
-
-// 1) Register protocol
-maplibregl.addProtocol("fgb", fgbProtocol);
-
-const map = new maplibregl.Map({
-  container: "map",
-  style: "https://tiles.openfreemap.org/styles/liberty",
-  center: [-82.4869, 28.0303],
-  zoom: 7,
-});
-
-map.on("load", () => {
-  // 2) Add FlatGeobuf as vector source
-  map.addSource("fgb-source", {
-    type: "vector",
-    tiles: ["fgb:///polygons.fgb?z={z}&x={x}&y={y}"],
-    minzoom: 8,
-  });
-
-  // 3) Add layer (just like normal vector tiles)
-  map.addLayer({
-    id: "fgb-layer",
-    source: "fgb-source",
-    "source-layer": "data",
-    type: "line",
-    paint: {
-      "line-width": 2,
-    },
-  });
-});
-```

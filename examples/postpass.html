@@ -1,0 +1,74 @@
+<html>
+    <style>
+        html, body, #map {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+        }
+    </style>
+    <div id="map"></div>
+    <script type="importmap">
+      {
+        "imports": {
+          "geojson-vt": "https://esm.sh/geojson-vt",
+          "@mapbox/tilebelt": "https://esm.sh/@mapbox/tilebelt",
+          "vt-pbf": "https://esm.sh/vt-pbf"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="https://esm.sh/maplibre-gl@5.8.0/dist/maplibre-gl.css">
+    <script type="module">
+        import maplibregl from "https://esm.sh/maplibre-gl";
+        import { Protocol } from "../dist/index.js";
+
+        // 1) Register protocol
+        const protocol = new Protocol("postpass", async (query, {}, controller) => {
+          const resp = await fetch("https://postpass.geofabrik.de/api/0.2/interpreter", {
+            method: "POST",
+            body: new URLSearchParams([["data", query]]),
+            signal: controller.signal,
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Accept: "application/json",
+            },
+          });
+          if (!resp.ok) {
+            throw new Error(
+              `Postpass API returned ${resp.status}:\n${await resp.text()}`,
+            );
+          }
+          return resp.json();
+        });
+        maplibregl.addProtocol(protocol.name, protocol.tile);
+
+        const map = new maplibregl.Map({
+          container: "map",
+          style: "https://tiles.openfreemap.org/styles/liberty",
+          center: [-82.4869, 28.0303],
+          zoom: 7,
+        });
+
+        map.on("load", () => {
+          // 2) Add Postpass as vector source
+          map.addSource("postpass-source", {
+            type: "vector",
+            url: `postpass://SELECT * FROM postpass_polygon
+                    WHERE tags->>'boundary'='administrative'
+                      AND tags->>'admin_level'='6'
+                      AND geom && ST_Transform(ST_TileEnvelope({z}, {x}, {y}), 4326)`,
+            minzoom: 8,
+          });
+
+          // 3) Add layer (just like normal vector tiles)
+          map.addLayer({
+            id: "postpass-layer",
+            source: "postpass-source",
+            "source-layer": "data",
+            type: "line",
+            paint: {
+              "line-width": 2,
+            },
+          });
+        });
+    </script>
+</html>

@@ -1,54 +1,75 @@
 import * as tilebelt from "@mapbox/tilebelt";
 import vtPbf from "vt-pbf";
 import geojsonvt from "geojson-vt";
-import * as flatgeobuf from "flatgeobuf";
 
-type ProtocolArgs = {
+type RequestParameters = {
   url: string;
+  headers?: unknown;
+  method?: "GET" | "POST" | "PUT";
+  body?: string;
+  type?: "string" | "json" | "arrayBuffer" | "image";
+  credentials?: "same-origin" | "include";
+  collectResourceTiming?: boolean;
 };
 
-export const fgbProtocol = async (args: ProtocolArgs, ac: AbortController) => {
-  const _url = args.url.replace("fgb://", "");
 
-  const url = _url.split("?")[0];
-  const params = new URLSearchParams(_url.split("?")[1]);
+export class Protocol {
+  name: string
+  func: Function
+  minzoom: Number
+  maxzoom: Number
 
-  const z = parseInt(params.get("z")!);
-  const x = parseInt(params.get("x")!);
-  const y = parseInt(params.get("y")!);
-
-  // get the bounding box
-  const [minX, minY, maxX, maxY] = tilebelt.tileToBBOX([x, y, z]);
-
-  const fc = {
-    type: "FeatureCollection",
-    features: [] as flatgeobuf.IGeoJsonFeature[],
-  };
-  const iter = flatgeobuf.geojson.deserialize(url!, {
-    minX,
-    minY,
-    maxX,
-    maxY,
-  });
-
-  for await (const feature of iter) {
-    fc.features.push(feature);
+  constructor(name: string, func: Function, minzoom: Number = 8, maxzoom: Number = 22) {
+    this.name = name;
+    this.func = func;
+    this.minzoom = minzoom;
+    this.maxzoom = maxzoom;
+    this.tile = this.tile.bind(this);
   }
+  async tile(params: RequestParameters, ac: AbortController) {
+    if (params.type === "json") {
+      const data = {
+        tilejson: "3.0.0",
+        scheme: "xyz",
+        tiles: [`${params.url}/{z}/{x}/{y}`],
+        vector_layers: [{id: "data", fields: {}}],
+        minzoom: this.minzoom,
+        maxzoom: this.maxzoom,
+      };
+      return { data };
+    }
 
-  const tile = geojsonvt(fc as never, {
-    maxZoom: z,
-    tolerance: 3,
-    buffer: 64,
-  });
+    const re = new RegExp(`^${this.name}://((.|\n)+)/(\\d+)/(\\d+)/(\\d+)$`, "m");
+    const result = params.url.match(re);
+    if (!result) {
+      throw new Error("Invalid protocol URL");
+    }
+    const url = result[1];
 
-  const layer = tile.getTile(z, x, y);
+    const z = parseInt(result[3]!);
+    const x = parseInt(result[4]!);
+    const y = parseInt(result[5]!);
 
-  if (!layer) {
-    return { data: new ArrayBuffer(0) };
+    // get the bounding box
+    const [minX, minY, maxX, maxY] = tilebelt.tileToBBOX([x, y, z]);
+
+    const fc = await this.func(url, {x, y, z, minX, minY, maxX, maxY}, ac)
+
+    const tile = geojsonvt(fc as never, {
+      maxZoom: z,
+      tolerance: 3,
+      buffer: 64,
+    });
+
+    const layer = tile.getTile(z, x, y);
+
+    if (!layer) {
+      return { data: new ArrayBuffer(0) };
+    }
+
+    const pbf = vtPbf.fromGeojsonVt({ data: layer as never });
+    return {
+      data: pbf,
+    };
   }
-
-  const pbf = vtPbf.fromGeojsonVt({ data: layer as never });
-  return {
-    data: pbf,
-  };
-};
+}

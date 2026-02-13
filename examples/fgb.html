@@ -1,0 +1,72 @@
+<html>
+    <style>
+        html, body, #map {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+        }
+    </style>
+    <div id="map"></div>
+    <script type="importmap">
+      {
+        "imports": {
+          "geojson-vt": "https://esm.sh/geojson-vt",
+          "flatgeobuf": "https://esm.sh/flatgeobuf",
+          "@mapbox/tilebelt": "https://esm.sh/@mapbox/tilebelt",
+          "vt-pbf": "https://esm.sh/vt-pbf"
+        }
+      }
+    </script>
+    <link rel="stylesheet" href="https://esm.sh/maplibre-gl@5.8.0/dist/maplibre-gl.css">
+    <script type="module">
+        import maplibregl from "https://esm.sh/maplibre-gl";
+        import { Protocol } from "../dist/index.js";
+        import * as flatgeobuf from "flatgeobuf";
+
+
+        // 1) Register protocol
+        const protocol = new Protocol("fgb", async (url, {minX, minY, maxX, maxY}) => {
+            const fc = { type: "FeatureCollection", features: [] };
+            const iter = flatgeobuf.geojson.deserialize(url, {
+              minX,
+              minY,
+              maxX,
+              maxY,
+            });
+
+            for await (const feature of iter) {
+              fc.features.push(feature);
+            }
+
+            return fc;
+        });
+        maplibregl.addProtocol(protocol.name, protocol.tile);
+
+        const map = new maplibregl.Map({
+          container: "map",
+          style: "https://tiles.openfreemap.org/styles/liberty",
+          center: [-82.4869, 28.0303],
+          zoom: 7,
+        });
+
+        map.on("load", () => {
+          // 2) Add FlatGeobuf as vector source
+          map.addSource("fgb-source", {
+            type: "vector",
+            url: "fgb://https://flatgeobuf.org/test/data/UScounties.fgb",
+            minzoom: 8,
+          });
+
+          // 3) Add layer (just like normal vector tiles)
+          map.addLayer({
+            id: "fgb-layer",
+            source: "fgb-source",
+            "source-layer": "data",
+            type: "line",
+            paint: {
+              "line-width": 2,
+            },
+          });
+        });
+    </script>
+</html>
